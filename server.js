@@ -1,36 +1,18 @@
 const express = require("express");
-const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.set("trust proxy", true);
-
 const DATA_DIR = path.join(__dirname, "data");
-const APKS_DIR = path.join(DATA_DIR, "apks");
 const APPS_JSON = path.join(DATA_DIR, "apps.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(APKS_DIR)) fs.mkdirSync(APKS_DIR, { recursive: true });
 if (!fs.existsSync(APPS_JSON)) fs.writeFileSync(APPS_JSON, "[]", "utf-8");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use("/apks", express.static(APKS_DIR));
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, APKS_DIR);
-  },
-  filename: function (req, file, cb) {
-    const safeName = Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
-    cb(null, safeName);
-  }
-});
-
-const upload = multer({ storage });
 
 function readApps() {
   try {
@@ -84,7 +66,7 @@ app.get("/admin", (req, res) => {
       <div class="wrap">
         <h1>Car Store Admin</h1>
 
-        <form action="/admin/upload" method="POST" enctype="multipart/form-data">
+        <form action="/admin/upload" method="POST">
           <label>App adı</label>
           <input name="name" required />
 
@@ -94,10 +76,10 @@ app.get("/admin", (req, res) => {
           <label>Description</label>
           <input name="description" />
 
-          <label>APK seç</label>
-          <input type="file" name="apk" accept=".apk" required />
+          <label>APK Link</label>
+          <input type="text" name="apkUrl" placeholder="https://github.com/..." required />
 
-          <button type="submit">Yüklə</button>
+          <button type="submit">Əlavə et</button>
         </form>
 
         <h2>Mövcud app-lar</h2>
@@ -121,15 +103,12 @@ app.get("/admin", (req, res) => {
   `);
 });
 
-app.post("/admin/upload", upload.single("apk"), (req, res) => {
-  const { name, packageName, description } = req.body;
+app.post("/admin/upload", (req, res) => {
+  const { name, packageName, description, apkUrl } = req.body;
 
-  if (!req.file || !name) {
-    return res.status(400).send("Ad və APK vacibdir");
+  if (!name || !apkUrl) {
+    return res.status(400).send("Ad və APK link vacibdir");
   }
-
-  const baseUrl = `https://${req.get("host")}`;
-  const apkUrl = `${baseUrl}/apks/${req.file.filename}`;
 
   const apps = readApps();
   apps.push({
@@ -148,14 +127,6 @@ app.post("/admin/delete/:index", (req, res) => {
   const apps = readApps();
 
   if (index >= 0 && index < apps.length) {
-    const item = apps[index];
-    const fileName = item.apkUrl.split("/apks/")[1];
-    const filePath = path.join(APKS_DIR, fileName);
-
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
     apps.splice(index, 1);
     writeApps(apps);
   }
