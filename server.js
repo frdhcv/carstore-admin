@@ -6,6 +6,8 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set("trust proxy", true);
+
 const DATA_DIR = path.join(__dirname, "data");
 const APKS_DIR = path.join(DATA_DIR, "apks");
 const APPS_JSON = path.join(DATA_DIR, "apps.json");
@@ -121,11 +123,12 @@ app.get("/admin", (req, res) => {
 
 app.post("/admin/upload", upload.single("apk"), (req, res) => {
   const { name, packageName, description } = req.body;
+
   if (!req.file || !name) {
     return res.status(400).send("Ad və APK vacibdir");
   }
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const baseUrl = `https://${req.get("host")}`;
   const apkUrl = `${baseUrl}/apks/${req.file.filename}`;
 
   const apps = readApps();
